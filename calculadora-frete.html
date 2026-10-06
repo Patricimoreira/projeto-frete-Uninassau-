@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calculadora de Frete | UNINASSAU Parangaba</title>
+<style>
+:root{--bg:#0B1220;--card:#121C30;--line:#22304D;--text:#EAF0FA;--muted:#8FA0BF;--accent:#22D3A6;--accent2:#3B82F6;--err:#F87171}
+*{box-sizing:border-box;margin:0}
+body{min-height:100vh;background:radial-gradient(900px 500px at 80% -10%,#16335a55,transparent),var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:24px 14px 48px;line-height:1.5}
+main{max-width:560px;margin:0 auto}
+header{text-align:center;margin-bottom:24px}
+header h1{font-size:clamp(28px,7vw,40px);letter-spacing:-.02em}
+header p{color:var(--muted);margin-top:8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:22px;box-shadow:0 20px 50px #0006}
+.origem{display:flex;gap:10px;align-items:center;color:var(--muted);font-size:14px;margin-bottom:18px;padding:10px 12px;border:1px dashed var(--line);border-radius:12px}
+label{display:block;font-weight:600;margin-bottom:8px}
+input{width:100%;font-size:26px;letter-spacing:.06em;padding:16px;border-radius:14px;border:1px solid var(--line);background:#0B1426;color:var(--text);outline:none;transition:border-color .2s,box-shadow .2s}
+input:focus{border-color:var(--accent);box-shadow:0 0 0 3px #22D3A622}
+button{width:100%;margin-top:14px;padding:17px;font-size:18px;font-weight:700;border:0;border-radius:14px;color:#04120E;background:linear-gradient(90deg,var(--accent),#5EEAD4);cursor:pointer;transition:transform .15s,opacity .2s}
+button:active{transform:scale(.98)}button:disabled{opacity:.55;cursor:wait}
+.status{margin-top:16px;display:none;align-items:center;gap:12px;padding:14px;border-radius:12px;background:#0B1426;border:1px solid var(--line);animation:in .3s}
+.status.on{display:flex}.status.erro{border-color:var(--err);color:var(--err)}
+.spin{width:18px;height:18px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:r .8s linear infinite;flex:none}
+.erro .spin{display:none}
+.result{display:none;margin-top:20px;animation:in .4s}.result.on{display:block}
+.row{display:flex;gap:14px;align-items:flex-start;padding:14px 0;border-bottom:1px solid var(--line)}
+.row .ic{font-size:24px}.row small{display:block;color:var(--muted);font-size:13px}
+.row b{font-size:20px}
+.final{margin-top:16px;text-align:center;padding:24px 14px;border-radius:18px;background:linear-gradient(135deg,#0E3B3A,#10294D);border:1px solid #22D3A655}
+.final small{color:var(--muted);display:block}
+.final strong{display:block;font-size:clamp(44px,13vw,64px);line-height:1.1;color:var(--accent);margin-top:4px}
+.aviso{margin-top:16px;color:var(--muted);font-size:12.5px}
+.aprox{margin-top:10px;font-size:13px;color:#FBBF24}
+@keyframes r{to{transform:rotate(360deg)}}@keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>🚚 Calculadora de Frete</h1>
+  <p>Informe o CEP do destino e descubra uma estimativa de frete a partir da UNINASSAU Parangaba.</p>
+</header>
+<div class="card">
+  <div class="origem">📌 <span><b>Origem:</b> UNINASSAU — Campus Parangaba, Fortaleza — CE</span></div>
+  <label for="cep">Digite o CEP do destino</label>
+  <input id="cep" inputmode="numeric" autocomplete="postal-code" placeholder="00000-000" maxlength="9">
+  <button id="btn">Calcular frete</button>
+  <div class="status" id="status"><div class="spin"></div><span id="msg"></span></div>
+
+  <div class="result" id="res">
+    <div class="row"><span class="ic">📍</span><div><small>Destino</small><b id="rDest"></b><small id="rCep"></small></div></div>
+    <div class="row"><span class="ic">📏</span><div><small>Distância aproximada</small><b id="rKm"></b></div></div>
+    <div class="row"><span class="ic">🏍️</span><div><small>Estimativa Uber Moto</small><b id="rUber"></b></div></div>
+    <div class="final"><small>🚚 Frete estimado</small><strong id="rFrete"></strong></div>
+    <p class="aprox" id="rAprox"></p>
+    <p class="aviso">Estimativa baseada na distância. O valor não representa uma cotação oficial do Uber.<br><br>O valor apresentado é uma estimativa baseada na distância e em parâmetros configuráveis. A tarifa real do Uber Moto pode variar conforme horário, demanda, trânsito e disponibilidade. Este cálculo não representa uma cotação oficial do Uber.</p>
+  </div>
+</div>
+</main>
+
+<script>
+/* ============ CONFIGURAÇÃO (edite aqui) ============
+   Os valores abaixo são PARÂMETROS DE ESTIMATIVA de exemplo,
+   não são tarifas oficiais do Uber. Ajuste conforme seus custos reais. */
+const CONFIG = {
+  tarifaBaseMoto: 4.00,    // R$ fixo da "corrida" estimada
+  valorPorKmMoto: 1.80,    // R$ por km rodado
+  taxaOperacional: 5.00,   // R$ somado ao frete
+  percentualFrete: 0,      // % de margem sobre a estimativa da moto
+  freteMinimo: 8.00,       // R$ mínimo cobrado
+  origem: {
+    nome: "UNINASSAU — Campus Parangaba",
+    // Preencha lat/lon se quiser fixar as coordenadas. Se null, são obtidas
+    // via Nominatim na 1ª consulta e guardadas no navegador.
+    lat: null, lon: null,
+    consultas: [
+      "Rua Germano Franck, 613, Parangaba, Fortaleza, Ceará, Brasil",
+      "Rua Germano Franck, Parangaba, Fortaleza, Ceará, Brasil"
+    ]
+  }
+};
+
+const $ = id => document.getElementById(id);
+const brl = v => v.toLocaleString("pt-BR", {style:"currency", currency:"BRL"});
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+class Erro extends Error {}
+
+/* ---------- 1. ViaCEP ---------- */
+async function buscarCEP(cep) {
+  let r;
+  try { r = await fetch(`https://viacep.com.br/ws/${cep}/json/`); }
+  catch { throw new Erro("Não foi possível consultar o CEP agora. Verifique sua conexão e tente novamente."); }
+  if (r.status === 400) throw new Erro("CEP não encontrado. Verifique os dados e tente novamente.");
+  if (!r.ok) throw new Erro("O serviço de CEP (ViaCEP) está indisponível. Tente novamente em instantes.");
+  const d = await r.json();
+  if (d.erro) throw new Erro("CEP não encontrado. Verifique os dados e tente novamente.");
+  return d;
+}
+
+/* ---------- 2. Nominatim ---------- */
+async function nominatim(q) {
+  const url = "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=br&accept-language=pt-BR&q=" + encodeURIComponent(q);
+  let r;
+  try { r = await fetch(url); } catch { throw new Erro("Falha ao consultar o serviço de localização (Nominatim)."); }
+  if (!r.ok) throw new Erro("O serviço de localização (Nominatim) está indisponível ou limitou as consultas. Aguarde e tente de novo.");
+  const j = await r.json();
+  return j.length ? {lat: parseFloat(j[0].lat), lon: parseFloat(j[0].lon)} : null;
+}
+
+async function geocodificarEndereco(end) {
+  const nivel = [
+    [end.logradouro && [end.logradouro, end.bairro, end.localidade, end.uf, "Brasil"], false],
+    [end.logradouro && [end.logradouro, end.localidade, end.uf, "Brasil"], false],
+    [end.bairro && [end.bairro, end.localidade, end.uf, "Brasil"], true],
+    [[end.localidade, end.uf, "Brasil"], true]
+  ];
+  for (const [partes, aprox] of nivel) {
+    if (!partes) continue;
+    const p = await nominatim(partes.filter(Boolean).join(", "));
+    if (p) return {...p, aproximado: aprox};
+    await sleep(1100); // limite do Nominatim: 1 req/s
+  }
+  throw new Erro("Endereço não encontrado no mapa. Tente outro CEP.");
+}
+
+async function obterOrigem() {
+  const o = CONFIG.origem;
+  if (o.lat != null && o.lon != null) return o;
+  try { const c = JSON.parse(localStorage.getItem("origemCoords")); if (c && c.lat) return c; } catch {}
+  for (const q of o.consultas) {
+    await sleep(1100); // evita 2 chamadas seguidas ao Nominatim (limite 1 req/s)
+    const p = await nominatim(q);
+    if (p) { try { localStorage.setItem("origemCoords", JSON.stringify(p)); } catch {} return p; }
+    await sleep(1100);
+  }
+  throw new Erro("Não foi possível localizar a origem. Defina lat/lon em CONFIG.origem.");
+}
+
+/* ---------- 3. OSRM ---------- */
+async function calcularRota(a, b) {
+  const url = `https://router.project-osrm.org/route/v1/driving/${a.lon},${a.lat};${b.lon},${b.lat}?overview=false`;
+  let r;
+  try { r = await fetch(url); } catch { throw new Erro("Falha ao consultar o serviço de rotas (OSRM)."); }
+  if (!r.ok) throw new Erro("O serviço de rotas (OSRM) está indisponível. Tente novamente em instantes.");
+  const j = await r.json();
+  if (j.code !== "Ok" || !j.routes || !j.routes.length) throw new Erro("Rota indisponível entre a origem e este destino.");
+  return j.routes[0].distance / 1000; // km
+}
+
+/* ---------- 4/5. Estimativas ---------- */
+function calcularEstimativaUberMoto(km) {
+  return CONFIG.tarifaBaseMoto + km * CONFIG.valorPorKmMoto;
+}
+function calcularFrete(uber) {
+  const v = uber * (1 + CONFIG.percentualFrete / 100) + CONFIG.taxaOperacional;
+  return Math.max(v, CONFIG.freteMinimo);
+}
+
+/* ---------- 6. Interface ---------- */
+function exibirResultado(end, km, uber, frete, aprox) {
+  const rua = [end.logradouro, end.bairro].filter(Boolean).join(", ");
+  $("rDest").textContent = `${rua ? rua + ", " : ""}${end.localidade} — ${end.uf}`;
+  $("rCep").textContent = "CEP " + end.cep;
+  $("rKm").textContent = km.toLocaleString("pt-BR", {minimumFractionDigits:1, maximumFractionDigits:1}) + " km";
+  $("rUber").textContent = brl(uber);
+  $("rFrete").textContent = brl(frete);
+  $("rAprox").textContent = aprox ? "⚠️ Este CEP não tem rua específica: a distância considera o centro do bairro/cidade." : "";
+  $("res").classList.add("on");
+}
+function status(texto, erro) {
+  const s = $("status"); s.classList.add("on"); s.classList.toggle("erro", !!erro);
+  $("msg").textContent = texto;
+}
+
+async function calcular() {
+  const cep = $("cep").value.replace(/\D/g, "");
+  $("res").classList.remove("on");
+  if (cep.length !== 8) return status("CEP inválido. Digite os 8 números do CEP.", true);
+  $("btn").disabled = true;
+  try {
+    status("Consultando CEP…");
+    const end = await buscarCEP(cep);
+    status("Localizando endereço no mapa…");
+    const dest = await geocodificarEndereco(end);
+    status("Calculando rota…");
+    const origem = await obterOrigem();
+    const km = await calcularRota(origem, dest);
+    const uber = calcularEstimativaUberMoto(km);
+    exibirResultado(end, km, uber, calcularFrete(uber), dest.aproximado);
+    $("status").classList.remove("on");
+  } catch (e) {
+    status(e instanceof Erro ? e.message : "Ocorreu um erro inesperado. Tente novamente.", true);
+  } finally { $("btn").disabled = false; }
+}
+
+$("cep").addEventListener("input", e => {
+  const d = e.target.value.replace(/\D/g, "").slice(0, 8);
+  e.target.value = d.length > 5 ? d.slice(0, 5) + "-" + d.slice(5) : d;
+});
+$("cep").addEventListener("keydown", e => { if (e.key === "Enter") calcular(); });
+$("btn").addEventListener("click", calcular);
+</script>
+</body>
+</html>
